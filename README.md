@@ -1,7 +1,7 @@
 - 👋 Hi, I’m @forthens
 - 👀 I’m interested in game development
 - 🌱 I’m currently learning rust
-- 💞️ I’m looking to collaborate on game development with unity
+- 💞️ I’m looking to collaborate on game development
 - 📫 forest@javafault.com
 
 <!---
