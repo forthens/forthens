@@ -1,10 +1,40 @@
-- 👋 Hi, I’m @forthens
-- 👀 I’m interested in game development
-- 🌱 I’m currently learning rust
-- 💞️ I’m looking to collaborate on game development
-- 📫 forest@javafault.com
+# 鸭科夫游戏 - Java实现
 
-<!---
-forthens/forthens is a ✨ special ✨ repository because its `README.md` (this file) appears on your GitHub profile.
-You can click the Preview link to take a look at your changes.
---->
+这是一个简单的《逃离鸭科夫》风格游戏的Java实现，使用基本的多边形和色块来表示游戏元素，专注于游戏可玩内核的构建。
+
+## 游戏特性
+- 简单的3D视角（伪3D）
+- 基本的移动控制
+- 简单的敌人AI
+- 基本的射击机制
+- 基础的碰撞检测
+- 墙壁系统
+
+## 运行方法
+```bash
+# 方法1: 使用启动脚本
+./run.sh
+
+# 方法2: 手动运行
+javac *.java
+java DuckGame
+```
+
+## 控制说明
+- W/S: 前进/后退
+- A/D: 左转/右转
+- 空格: 射击
+
+## 游戏元素
+- 玩家（青色三角形）：代表玩家角色，三角形指向表示朝向
+- 敌人（彩色方块）：会向玩家移动的敌人
+- 墙壁（灰色矩形）：阻挡玩家和敌人的障碍物
+- 子弹（黄色圆点）：玩家发射的子弹，击中敌人可消灭敌人
+
+## 项目结构
+- `DuckGame.java`: 游戏主类，包含游戏循环、渲染和控制逻辑
+- `Enemy.java`: 敌人类，定义敌人属性和行为
+- `Bullet.java`: 子弹类，处理子弹移动
+- `Wall.java`: 墙壁类，定义障碍物
+- `GAME_DESIGN.md`: 游戏设计文档
+- `run.sh`: 游戏启动脚本
