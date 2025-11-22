@@ -1,10 +1,57 @@
-- 👋 Hi, I’m @forthens
-- 👀 I’m interested in game development
-- 🌱 I’m currently learning rust
-- 💞️ I’m looking to collaborate on game development
-- 📫 forest@javafault.com
+# 鸭科夫游戏 (DuckGame) - 2.5D视角版
 
-<!---
-forthens/forthens is a ✨ special ✨ repository because its `README.md` (this file) appears on your GitHub profile.
-You can click the Preview link to take a look at your changes.
---->
+这是一个使用Java实现的类似《逃离鸭科夫》的游戏。游戏实现了2.5D视角（类似《毁灭战士》的伪3D效果），使用基本的多边形和色块来表示游戏元素，专注于构建游戏的核心玩法。
+
+## 游戏特性
+
+- 2.5D视角（射线投射算法实现）
+- 玩家移动系统（W/S前进后退）
+- 鼠标控制玩家朝向
+- 鼠标左键射击
+- 敌人AI（向玩家移动）
+- 碰撞检测系统
+- 墙壁系统
+- 小地图显示
+
+## 游戏元素
+
+- 玩家：以第一人称视角呈现
+- 敌人：彩色方块（根据距离调整大小）
+- 墙壁：红色/蓝色线条（根据方向区分，带距离着色）
+- 子弹：黄色圆点（根据距离调整大小）
+- 小地图：俯视图显示玩家、敌人和墙壁
+
+## 控制方式
+
+- W/S: 前进/后退
+- 鼠标: 控制朝向
+- 鼠标左键: 射击
+
+## 如何运行
+
+1. 编译游戏：
+   ```bash
+   javac DuckGame.java
+   ```
+
+2. 运行游戏：
+   ```bash
+   java DuckGame
+   ```
+
+## 技术实现
+
+- 使用射线投射（Ray Casting）算法实现2.5D视角
+- DDA（Digital Differential Analysis）算法用于高效射线-墙壁碰撞检测
+- 透视投影算法将3D世界坐标转换为2D屏幕坐标
+- 距离着色算法实现深度感知效果
+
+## 文件结构
+
+- `DuckGame.java` - 主游戏类
+- `Enemy.java` - 敌人类
+- `Bullet.java` - 子弹类
+- `Wall.java` - 墙壁类
+- `GAME_DESIGN.md` - 游戏设计文档
+- `README.md` - 本说明文件
+- `run.sh` - 运行脚本
