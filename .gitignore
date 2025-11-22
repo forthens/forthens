@@ -1,21 +1,27 @@
 ```
-# Compiled Java classes
+# Compiled and build artifacts
 *.class
+*.o
+*.obj
+*.exe
+*.dll
+*.so
+*.a
+*.out
 
 # Dependencies
 lib/
 libs/
 jars/
+target/
+build/
+dist/
+out/
 
 # Logs and temp files
 *.log
 *.tmp
 *.swp
-
-# Environment
-.env
-.env.local
-*.env.*
 
 # Editors
 .vscode/
@@ -23,7 +29,17 @@ jars/
 *.swp
 *.swo
 
-# OS generated files
+# Environment
+.env
+.env.local
+*.env.*
+
+# Coverage
+coverage/
+htmlcov/
+.coverage
+
+# System files
 .DS_Store
 Thumbs.db
 ```

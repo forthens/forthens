@@ -2,6 +2,9 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
+import java.awt.event.MouseMotionListener;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -9,7 +12,7 @@ import java.util.List;
  * 鸭科夫游戏 - Java实现
  * 使用基本的多边形和色块来表示游戏元素
  */
-public class DuckGame extends JPanel implements KeyListener, Runnable {
+public class DuckGame extends JPanel implements KeyListener, MouseListener, MouseMotionListener, Runnable {
     private static final int WINDOW_WIDTH = 800;
     private static final int WINDOW_HEIGHT = 600;
     private static final int PLAYER_SIZE = 20;
@@ -20,6 +23,11 @@ public class DuckGame extends JPanel implements KeyListener, Runnable {
     private double playerAngle = 0; // 玩家朝向角度
     private double playerSpeed = 0; // 前进/后退速度
     private double rotationSpeed = 0; // 旋转速度
+    
+    // 鼠标位置
+    private int mouseX = 0;
+    private int mouseY = 0;
+    private boolean mousePressed = false;
     
     // 游戏对象
     private List<Enemy> enemies = new ArrayList<>();
@@ -35,6 +43,8 @@ public class DuckGame extends JPanel implements KeyListener, Runnable {
         setBackground(Color.BLACK);
         setFocusable(true);
         addKeyListener(this);
+        addMouseListener(this);
+        addMouseMotionListener(this);
         
         // 初始化墙壁
         initializeWalls();
@@ -72,50 +82,217 @@ public class DuckGame extends JPanel implements KeyListener, Runnable {
         Graphics2D g2d = (Graphics2D) g;
         g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         
-        // 绘制墙壁
-        g2d.setColor(Color.GRAY);
+        // 绘制2.5D视角的墙壁和环境
+        draw25DView(g2d);
+        
+        // 绘制2D小地图
+        drawMinimap(g2d);
+    }
+    
+    private void draw25DView(Graphics2D g2d) {
+        // 实现射线投射算法来创建2.5D视角
+        int screenWidth = WINDOW_WIDTH;
+        int screenHeight = WINDOW_HEIGHT;
+        
+        // 从玩家位置向各个方向投射射线
+        for (int x = 0; x < screenWidth; x++) {
+            // 计算射线的角度（考虑视角）
+            double rayAngle = playerAngle - Math.PI / 4 + (Math.PI / 2) * x / screenWidth;
+            
+            // 射线的方向向量
+            double rayDirX = Math.cos(rayAngle);
+            double rayDirY = Math.sin(rayAngle);
+            
+            // 玩家所在的格子
+            int mapX = (int) playerX / 40; // 假设每个格子是40像素
+            int mapY = (int) playerY / 40;
+            
+            // 射线的长度
+            double sideDistX, sideDistY;
+            double deltaDistX = Math.abs(1 / rayDirX);
+            double deltaDistY = Math.abs(1 / rayDirY);
+            double perpWallDist;
+            
+            // 步长
+            int stepX, stepY;
+            boolean hit = false;
+            int side = 0; // 0表示东西方向，1表示南北方向
+            
+            // 计算步长和初始边距
+            if (rayDirX < 0) {
+                stepX = -1;
+                sideDistX = (playerX - mapX * 40) * deltaDistX;
+            } else {
+                stepX = 1;
+                sideDistX = ((mapX + 1) * 40 - playerX) * deltaDistX;
+            }
+            if (rayDirY < 0) {
+                stepY = -1;
+                sideDistY = (playerY - mapY * 40) * deltaDistY;
+            } else {
+                stepY = 1;
+                sideDistY = ((mapY + 1) * 40 - playerY) * deltaDistY;
+            }
+            
+            // DDA算法
+            while (!hit) {
+                if (sideDistX < sideDistY) {
+                    sideDistX += deltaDistX;
+                    mapX += stepX;
+                    side = 0;
+                } else {
+                    sideDistY += deltaDistY;
+                    mapY += stepY;
+                    side = 1;
+                }
+                
+                // 检查是否碰到墙壁
+                if (isWallAt(mapX * 40, mapY * 40)) {
+                    hit = true;
+                }
+            }
+            
+            // 计算墙壁的高度
+            if (side == 0) {
+                perpWallDist = (mapX * 40 - playerX + (1 - stepX) / 2) / rayDirX;
+            } else {
+                perpWallDist = (mapY * 40 - playerY + (1 - stepY) / 2) / rayDirY;
+            }
+            
+            // 计算墙壁在屏幕上的高度
+            int lineHeight = (int) (screenHeight / perpWallDist);
+            
+            // 计算绘制的起始和结束位置
+            int drawStart = -lineHeight / 2 + screenHeight / 2;
+            if (drawStart < 0) drawStart = 0;
+            int drawEnd = lineHeight / 2 + screenHeight / 2;
+            if (drawEnd >= screenHeight) drawEnd = screenHeight - 1;
+            
+            // 根据距离调整颜色亮度
+            float brightness = (float) (1.0 / (1.0 + 0.001 * perpWallDist + 0.0001 * perpWallDist * perpWallDist));
+            brightness = Math.max(0.2f, brightness); // 确保最小亮度
+            
+            Color wallColor = side == 0 ? Color.RED : Color.BLUE; // 不同方向的墙壁使用不同颜色
+            Color shadedColor = new Color(
+                (int) (wallColor.getRed() * brightness),
+                (int) (wallColor.getGreen() * brightness),
+                (int) (wallColor.getBlue() * brightness)
+            );
+            
+            // 绘制墙壁线
+            g2d.setColor(shadedColor);
+            g2d.drawLine(x, drawStart, x, drawEnd);
+        }
+        
+        // 绘制敌人（以2.5D视角）
+        for (Enemy enemy : enemies) {
+            // 计算敌人相对于玩家的位置
+            double relX = enemy.x - playerX;
+            double relY = enemy.y - playerY;
+            
+            // 将世界坐标转换为玩家的局部坐标系
+            double rotatedX = relX * Math.cos(-playerAngle) - relY * Math.sin(-playerAngle);
+            double rotatedY = relX * Math.sin(-playerAngle) + relY * Math.cos(-playerAngle);
+            
+            // 如果敌人在前方
+            if (rotatedY > 0) {
+                // 计算敌人在屏幕上的位置
+                int screenX = (int) (screenWidth / 2 * (1 + rotatedX / rotatedY * 0.5));
+                int size = (int) (screenHeight / rotatedY * 30); // 远小近大
+                
+                if (screenX >= -size && screenX < screenWidth + size) {
+                    // 绘制敌人
+                    g2d.setColor(enemy.color);
+                    g2d.fillRect(screenX - size/2, (int) (screenHeight/2 - size/2), size, size);
+                    
+                    // 绘制敌人标签
+                    g2d.setColor(Color.WHITE);
+                    g2d.drawString("ENEMY", screenX - 20, (int) (screenHeight/2 - size/2 - 5));
+                }
+            }
+        }
+        
+        // 绘制子弹（以2.5D视角）
+        for (Bullet bullet : bullets) {
+            // 计算子弹相对于玩家的位置
+            double relX = bullet.x - playerX;
+            double relY = bullet.y - playerY;
+            
+            // 将世界坐标转换为玩家的局部坐标系
+            double rotatedX = relX * Math.cos(-playerAngle) - relY * Math.sin(-playerAngle);
+            double rotatedY = relX * Math.sin(-playerAngle) + relY * Math.cos(-playerAngle);
+            
+            // 如果子弹在前方
+            if (rotatedY > 0) {
+                // 计算子弹在屏幕上的位置
+                int screenX = (int) (screenWidth / 2 * (1 + rotatedX / rotatedY * 0.5));
+                int size = (int) (screenHeight / rotatedY * 5); // 远小近大
+                
+                if (size > 0 && screenX >= -size && screenX < screenWidth + size) {
+                    // 绘制子弹
+                    g2d.setColor(Color.YELLOW);
+                    g2d.fillOval(screenX - size/2, (int) (screenHeight/2 - size/2), size, size);
+                }
+            }
+        }
+    }
+    
+    private boolean isWallAt(int x, int y) {
         for (Wall wall : walls) {
-            g2d.fillRect(wall.x, wall.y, wall.width, wall.height);
+            if (x >= wall.x && x < wall.x + wall.width && 
+                y >= wall.y && y < wall.y + wall.height) {
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    private void drawMinimap(Graphics2D g2d) {
+        // 绘制一个小地图，显示玩家和环境的俯视图
+        int mapSize = 150;
+        int mapX = 10;
+        int mapY = 10;
+        double scale = 0.3; // 缩放比例
+        
+        // 绘制地图背景
+        g2d.setColor(new Color(0, 0, 0, 128)); // 半透明背景
+        g2d.fillRect(mapX, mapY, mapSize, mapSize);
+        g2d.setColor(Color.WHITE);
+        g2d.drawRect(mapX, mapY, mapSize, mapSize);
+        
+        // 绘制墙壁
+        for (Wall wall : walls) {
+            g2d.setColor(Color.GRAY);
+            g2d.fillRect(
+                mapX + (int)(wall.x * scale), 
+                mapY + (int)(wall.y * scale), 
+                (int)(wall.width * scale), 
+                (int)(wall.height * scale)
+            );
         }
         
         // 绘制敌人
         for (Enemy enemy : enemies) {
             g2d.setColor(enemy.color);
-            g2d.fillRect((int)enemy.x, (int)enemy.y, (int)enemy.width, (int)enemy.height);
-            
-            // 绘制敌人标签
-            g2d.setColor(Color.WHITE);
-            g2d.drawString("ENEMY", (int)enemy.x, (int)enemy.y - 5);
+            g2d.fillRect(
+                mapX + (int)(enemy.x * scale) - 2, 
+                mapY + (int)(enemy.y * scale) - 2, 
+                4, 
+                4
+            );
         }
         
-        // 绘制子弹
-        g2d.setColor(Color.YELLOW);
-        for (Bullet bullet : bullets) {
-            g2d.fillOval((int)bullet.x - 3, (int)bullet.y - 3, 6, 6);
-        }
-        
-        // 绘制玩家（三角形表示方向）
+        // 绘制玩家
         g2d.setColor(Color.CYAN);
-        int[] xPoints = {
-            (int)(playerX + Math.cos(playerAngle) * PLAYER_SIZE / 2),
-            (int)(playerX + Math.cos(playerAngle + 2.5) * PLAYER_SIZE / 2),
-            (int)(playerX + Math.cos(playerAngle - 2.5) * PLAYER_SIZE / 2)
-        };
-        int[] yPoints = {
-            (int)(playerY + Math.sin(playerAngle) * PLAYER_SIZE / 2),
-            (int)(playerY + Math.sin(playerAngle + 2.5) * PLAYER_SIZE / 2),
-            (int)(playerY + Math.sin(playerAngle - 2.5) * PLAYER_SIZE / 2)
-        };
-        g2d.fillPolygon(xPoints, yPoints, 3);
+        int playerMapX = mapX + (int)(playerX * scale);
+        int playerMapY = mapY + (int)(playerY * scale);
+        g2d.fillOval(playerMapX - 3, playerMapY - 3, 6, 6);
         
-        // 绘制玩家标签
-        g2d.setColor(Color.WHITE);
-        g2d.drawString("PLAYER", (int)playerX - 15, (int)playerY - 15);
-        
-        // 绘制UI信息
-        g2d.setColor(Color.WHITE);
-        g2d.drawString("WASD: 移动, 空格: 射击, 鼠标: 转向", 10, WINDOW_HEIGHT - 30);
-        g2d.drawString("敌人数量: " + enemies.size(), 10, WINDOW_HEIGHT - 10);
+        // 绘制玩家朝向
+        int toX = playerMapX + (int)(Math.cos(playerAngle) * 10);
+        int toY = playerMapY + (int)(Math.sin(playerAngle) * 10);
+        g2d.setColor(Color.YELLOW);
+        g2d.drawLine(playerMapX, playerMapY, toX, toY);
     }
     
     @Override
@@ -158,26 +335,48 @@ public class DuckGame extends JPanel implements KeyListener, Runnable {
     }
     
     private void handlePlayerMovement() {
-        // 旋转
-        playerAngle += rotationSpeed * 0.05;
+        // 根据鼠标位置更新玩家朝向
+        double dx = mouseX - playerX;
+        double dy = mouseY - playerY;
+        playerAngle = Math.atan2(dy, dx); // 计算玩家到鼠标位置的角度
         
-        // 前进/后退
-        double newX = playerX + Math.cos(playerAngle) * playerSpeed;
-        double newY = playerY + Math.sin(playerAngle) * playerSpeed;
-        
-        // 简单的碰撞检测（仅检测墙壁）
-        boolean canMove = true;
-        for (Wall wall : walls) {
-            if (newX < wall.x + wall.width && newX + PLAYER_SIZE > wall.x &&
-                newY < wall.y + wall.height && newY + PLAYER_SIZE > wall.y) {
-                canMove = false;
-                break;
+        // 前进/后退（仅当W或S键按下时）
+        if (keys[KeyEvent.VK_W]) {
+            double newX = playerX + Math.cos(playerAngle) * 3;
+            double newY = playerY + Math.sin(playerAngle) * 3;
+            
+            // 简单的碰撞检测（仅检测墙壁）
+            boolean canMove = true;
+            for (Wall wall : walls) {
+                if (newX < wall.x + wall.width && newX + PLAYER_SIZE > wall.x &&
+                    newY < wall.y + wall.height && newY + PLAYER_SIZE > wall.y) {
+                    canMove = false;
+                    break;
+                }
             }
-        }
-        
-        if (canMove) {
-            playerX = newX;
-            playerY = newY;
+            
+            if (canMove) {
+                playerX = newX;
+                playerY = newY;
+            }
+        } else if (keys[KeyEvent.VK_S]) {
+            double newX = playerX - Math.cos(playerAngle) * 3;
+            double newY = playerY - Math.sin(playerAngle) * 3;
+            
+            // 简单的碰撞检测（仅检测墙壁）
+            boolean canMove = true;
+            for (Wall wall : walls) {
+                if (newX < wall.x + wall.width && newX + PLAYER_SIZE > wall.x &&
+                    newY < wall.y + wall.height && newY + PLAYER_SIZE > wall.y) {
+                    canMove = false;
+                    break;
+                }
+            }
+            
+            if (canMove) {
+                playerX = newX;
+                playerY = newY;
+            }
         }
         
         // 限制玩家在窗口内
@@ -250,25 +449,16 @@ public class DuckGame extends JPanel implements KeyListener, Runnable {
         
         switch (e.getKeyCode()) {
             case KeyEvent.VK_W:
-                playerSpeed = 3;
+                // 前进逻辑现在在handlePlayerMovement中处理
                 break;
             case KeyEvent.VK_S:
-                playerSpeed = -3;
+                // 后退逻辑现在在handlePlayerMovement中处理
                 break;
             case KeyEvent.VK_A:
-                rotationSpeed = -0.1;
+                // A键不再用于旋转
                 break;
             case KeyEvent.VK_D:
-                rotationSpeed = 0.1;
-                break;
-            case KeyEvent.VK_SPACE:
-                // 发射子弹
-                bullets.add(new Bullet(
-                    playerX + Math.cos(playerAngle) * PLAYER_SIZE / 2,
-                    playerY + Math.sin(playerAngle) * PLAYER_SIZE / 2,
-                    playerAngle,
-                    7
-                ));
+                // D键不再用于旋转
                 break;
         }
     }
@@ -280,17 +470,55 @@ public class DuckGame extends JPanel implements KeyListener, Runnable {
         switch (e.getKeyCode()) {
             case KeyEvent.VK_W:
             case KeyEvent.VK_S:
-                playerSpeed = 0;
-                break;
-            case KeyEvent.VK_A:
-            case KeyEvent.VK_D:
-                rotationSpeed = 0;
+                // 不需要特殊处理，移动逻辑在handlePlayerMovement中根据按键状态判断
                 break;
         }
     }
     
     @Override
     public void keyTyped(KeyEvent e) {}
+    
+    @Override
+    public void mouseClicked(MouseEvent e) {}
+
+    @Override
+    public void mousePressed(MouseEvent e) {
+        if (e.getButton() == MouseEvent.BUTTON1) { // 左键
+            mousePressed = true;
+            // 发射子弹
+            bullets.add(new Bullet(
+                playerX + Math.cos(playerAngle) * PLAYER_SIZE / 2,
+                playerY + Math.sin(playerAngle) * PLAYER_SIZE / 2,
+                playerAngle,
+                7
+            ));
+        }
+    }
+
+    @Override
+    public void mouseReleased(MouseEvent e) {
+        if (e.getButton() == MouseEvent.BUTTON1) { // 左键
+            mousePressed = false;
+        }
+    }
+
+    @Override
+    public void mouseEntered(MouseEvent e) {}
+
+    @Override
+    public void mouseExited(MouseEvent e) {}
+
+    @Override
+    public void mouseDragged(MouseEvent e) {
+        mouseX = e.getX();
+        mouseY = e.getY();
+    }
+
+    @Override
+    public void mouseMoved(MouseEvent e) {
+        mouseX = e.getX();
+        mouseY = e.getY();
+    }
     
     public static void main(String[] args) {
         JFrame frame = new JFrame("鸭科夫游戏");
